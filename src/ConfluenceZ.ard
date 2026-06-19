@@ -1,0 +1,28 @@
+\import Beta
+\import ConfluenceTakahashi
+\import DeBruijn
+\import Takahashi
+\import Z
+
+\func star-left {n : Nat} {M L N : Term n}
+                (ML : red M L) (LN : reds L N) : reds M N \elim LN
+  | ref _ idp idp => trans ML (ref N idp idp)
+  | trans {Z} LZ ZN => trans ML (trans LZ ZN)
+
+\func betas-star {n : Nat} {M N : Term n} {k : Nat} (steps : RedsLen M k N) : reds M N \elim k, steps
+  | zero, rlen-refl idp => ref M idp idp
+  | suc k', rlen-step M-to-L L-to-N => star-left M-to-L (betas-star L-to-N)
+
+\func z-confluence-beta {n : Nat} : Confluence (red {n}) => z-confluence ( takahashi
+  , \lam {_} {_} r => reds-to-star {n} (lemma3-3 r)
+  , \lam {_} {_} r => reds-to-star {n} (lemma3-5 r)
+  )
+    \func reds-to-star {n : Nat} {M N : Term n} (rs : reds M N) : Star red M N \elim rs
+      | ref M idp idp => eps idp
+      | trans {L} M-to-L L-to-N => star-left-star M-to-L (reds-to-star L-to-N)
+
+    \func star-left-star {n : Nat} {M L N : Term n}
+                         (ML : red M L) (LN : Star red L N) : Star red M N \elim LN
+      | eps idp => seq (eps idp) ML
+      | seq {z} L-to-z z-to-N => seq (star-left-star ML L-to-z) z-to-N
+

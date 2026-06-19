@@ -1,0 +1,34 @@
+\data Term (n : Nat)
+  | var (Fin n)
+  | lam (Term (suc n))
+  | app (Term n) (Term n)
+
+
+\func Rename (n m : Nat) => Fin n -> Fin m
+
+\func Subst (n m : Nat) => Fin n -> Term m
+
+
+\func ext {n m : Nat} (rho : Rename n m) (x : Fin (suc n)) : Fin (suc m) \elim x
+  | zero => zero
+  | suc x => suc (rho x)
+
+\func rename {n m : Nat} (rho : Rename n m) (t : Term n) : Term m \elim t
+  | var x => var (rho x)
+  | lam M => lam (rename (ext rho) M)
+  | app M N => app (rename rho M) (rename rho N)
+
+\func exts {n m : Nat} (sigma : Subst n m) (x : Fin (suc n)) : Term (suc m) \elim x
+  | zero => var zero
+  | suc x => rename (\lam f => suc f) (sigma x)
+
+\func subst {n m : Nat} (sigma : Subst n m) (t : Term n) : Term m \elim t
+  | var x => sigma x
+  | lam M => lam (subst (exts sigma) M)
+  | app M N => app (subst sigma M) (subst sigma N)
+
+\func subst-zero {n : Nat} (M : Term n) (x : Fin (suc n)) : Term n \elim x
+  | zero => M
+  | suc x => var x
+
+\func \infixl 6 sub {n : Nat} (M : Term (suc n)) (N : Term n) : Term n => subst (subst-zero N) M

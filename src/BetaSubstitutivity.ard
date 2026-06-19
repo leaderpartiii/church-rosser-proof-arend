@@ -1,0 +1,63 @@
+\import Paths (inv, transport)
+\import DeBruijn (Term, var, lam, app, Rename, Subst, rename, exts, subst, subst-zero, sub)
+\import Substitution (rename-subst-commute, subst-commute)
+\import Beta (red, reds, ref, trans, reds-trans, reds-congL, reds-congR, reds-cong-lam, reds-cong, red-appL, red-appR, red-lam, red-beta)
+
+\func \infix 3 par-reds {n m : Nat} (sigma sigma' : Subst n m) : \Type => \Pi {x : Fin n} -> reds (sigma x) (sigma' x)
+
+\func beta-rename {n m : Nat} {rho : Rename n m} {M M' : Term n}
+                  (r : red M M') : red (rename rho M) (rename rho M') \elim M, M', r
+  | M, M', red-lam r idp idp => red-lam (beta-rename r) idp idp
+  | M, M', red-appL r idp idp => red-appL (beta-rename r) idp idp
+  | M, M', red-appR r idp idp => red-appR (beta-rename r) idp idp
+  | M, M', red-beta {M_body} {N_arg} idp idp => beta-helper rho M_body N_arg
+
+\func beta-helper {n m : Nat} (rho : Rename n m) (M_body : Term (suc n)) (N_arg : Term n)
+  : red (rename rho (app (lam M_body) N_arg)) (rename rho (M_body sub N_arg)) =>
+  transport (\lam X => red (rename rho (app (lam M_body) N_arg)) X)
+      (rename-subst-commute {n} {m} {M_body} {N_arg} {rho})
+      (red-beta idp idp)
+
+\func betas-rename {n m : Nat} {rho : Rename n m} {M M' : Term n}
+                   (rs : reds M M') : reds (rename rho M) (rename rho M') \elim rs
+  | ref _ idp idp => ref (rename rho M) idp idp
+  | trans r rs_L => trans (beta-rename r) (betas-rename rs_L)
+
+\func betas-subst-exts {n m : Nat} {sigma sigma' : Subst n m}
+                       (s-rs : par-reds sigma sigma') {x : Fin (suc n)} : reds (exts sigma x) (exts sigma' x) \elim x
+  | zero => ref (var zero) idp idp
+  | suc f => betas-rename (s-rs {f})
+
+\func subst-betas-sub {n m : Nat} {M : Term n} {sigma sigma' : Subst n m}
+                      (s-rs : par-reds sigma sigma') : reds (subst sigma M) (subst sigma' M) \elim M
+  | var x => s-rs {x}
+  | app M N => reds-cong (subst-betas-sub {n} {m} {M} s-rs) (subst-betas-sub {n} {m} {N} s-rs)
+  | lam M => reds-cong-lam (subst-betas-sub {suc n} {suc m} {M} (\lam {x} => betas-subst-exts s-rs {x}))
+
+\func subst-beta-term {n m : Nat} {M M' : Term n} {sigma : Subst n m}
+                      (r : red M M') : red (subst sigma M) (subst sigma M') \elim M, M', r
+  | M, M', red-lam r idp idp => red-lam (subst-beta-term r) idp idp
+  | M, M', red-appL r idp idp => red-appL (subst-beta-term r) idp idp
+  | M, M', red-appR r idp idp => red-appR (subst-beta-term r) idp idp
+  | M, M', red-beta {M_body} {N_arg} idp idp => subst-helper sigma M_body N_arg
+
+\func subst-helper {n m : Nat} (sigma : Subst n m) (M_body : Term (suc n)) (N_arg : Term n)
+  : red (subst sigma (app (lam M_body) N_arg)) (subst sigma (M_body sub N_arg)) =>
+  transport (\lam X => red (subst sigma (app (lam M_body) N_arg)) X)
+      (subst-commute {n} {m} {M_body} {N_arg} {sigma})
+      (red-beta idp idp)
+
+
+\func subst-betas {n m : Nat} {sigma sigma' : Subst n m} {M M' : Term n}
+                  (s-rs : par-reds sigma sigma') (rs : reds M M') : reds (subst sigma M) (subst sigma' M') \elim rs
+  | ref _ idp idp => subst-betas-sub s-rs
+  | trans r rs_L => trans (subst-beta-term r) (subst-betas s-rs rs_L)
+
+\func betas-subst-zero {n : Nat} {M M' : Term n}
+                       (M-rs : reds M M') {x : Fin (suc n)} : reds (subst-zero M x) (subst-zero M' x) \elim x
+  | zero => M-rs
+  | suc f => ref (var f) idp idp
+
+\func sub-betas {n : Nat} {M M' : Term (suc n)} {N N' : Term n}
+                (M-rs : reds M M') (N-rs : reds N N') : reds (M sub N) (M' sub N') =>
+  subst-betas (\lam {x} => betas-subst-zero N-rs {x}) M-rs

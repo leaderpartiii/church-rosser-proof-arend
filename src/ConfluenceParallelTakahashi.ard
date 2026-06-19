@@ -1,0 +1,46 @@
+\import Beta
+\import DeBruijn
+\import Parallel
+\import Paths
+\import Paths.Meta (rewrite)
+\import Takahashi
+
+\func par-triangle {n : Nat} {M N : Term n} (p : Pred M N) : Pred N (takahashi M) \elim M, N, p
+  | _, _, p-c idp idp => p-c idp idp
+  | _, _, p-lam p-body idp idp => p-lam (par-triangle p-body) idp idp
+  | _, _, p-app p1 p2 idp idp => par-triangle-app p1 p2
+  | _, _, p-beta p-body p2 idp idp => sub-par (par-triangle p-body) (par-triangle p2)
+
+\func par-triangle-app {n : Nat} {L L' K K' : Term n}
+                       (p1 : Pred L L') (p2 : Pred K K') : Pred (app L' K') (takahashi (app L K)) \elim p1
+  | p-c idp idp => p-app (p-c idp idp) (par-triangle p2) idp idp
+  | p-lam p-body idp idp => p-beta (par-triangle p-body) (par-triangle p2) idp idp
+  | p-app p1-1 p1-2 idp idp => p-app (par-triangle-app p1-1 p1-2) (par-triangle p2) idp idp
+  | p-beta p-body p1-2 idp idp => p-app (sub-par (par-triangle p-body) (par-triangle p1-2)) (par-triangle p2) idp idp
+
+\func par-diamond {n : Nat} {M A B : Term n} (M=>A : Pred M A) (M=>B : Pred M B)
+  : \Sigma (N : Term n) (Pred A N) (Pred B N) => (takahashi M , par-triangle M=>A , par-triangle M=>B)
+
+\func strip {n : Nat} {M A B : Term n} (M=>A : Pred M A) (M=>*B : Preds M B)
+  : \Sigma (N : Term n) (Preds A N) (Pred B N) \elim M=>*B
+  | preds-refl eq => (A, preds-refl idp, transport (\lam X => Pred X A) eq M=>A)
+  | preds-step {M'} M=>M' M'=>*B => \case par-diamond M=>A M=>M' \with {
+    | (N, A=>N, M'=>N) => \case strip M'=>N M'=>*B \with {
+      | (N', N=>*N', B=>N') => (N', preds-step A=>N N=>*N', B=>N')
+    }
+  }
+
+\func par-confluence {n : Nat} {M A B : Term n} (M=>*A : Preds M A) (M=>*B : Preds M B)
+  : \Sigma (N : Term n) (Preds A N) (Preds B N) \elim M=>*A
+  | preds-refl eq => ( B, transport (\lam X => Preds X B) eq M=>*B, preds-refl idp)
+  | preds-step {A'} M=>A' A'=>*A => \case strip M=>A' M=>*B \with {
+    | (N, A'=>*N, B=>N) => \case par-confluence A'=>*A A'=>*N \with {
+      | (N', A=>*N', N=>*N') => (N' , A=>*N', preds-step B=>N N=>*N')
+    }
+  }
+
+\func confluence {n : Nat} {M A B : Term n} (M->>A : reds M A) (M->>B : reds M B)
+  : \Sigma (N : Term n) (reds A N) (reds B N) =>
+  \case par-confluence (betas-pars M->>A) (betas-pars M->>B) \with {
+    | (N, A=>*N, B=>*N) => (N, pars-betas A=>*N, pars-betas B=>*N)
+  }

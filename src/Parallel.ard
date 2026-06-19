@@ -1,0 +1,93 @@
+\import Beta
+\import Data.Fin
+\import DeBruijn
+\import Paths
+\import Substitution (rename-subst-commute)
+
+\data Pred {n : Nat} (M M' : Term n)
+  | p-c {x : Fin n} (M = var x) (M' = var x)
+  | p-lam {M-body M'-body : Term (suc n)} (Pred M-body M'-body) (M = lam M-body) (M' = lam M'-body)
+  | p-app {L L' K K' : Term n} (Pred L L') (Pred K K') (M = app L K) (M' = app L' K')
+  | p-beta {M-body M'-body : Term (suc n)} {K K' : Term n}
+           (Pred M-body M'-body) (Pred K K')
+           (M = app (lam M-body) K) (M' = M'-body sub K')
+
+\func par-subst {n m : Nat} (sigma sigma' : Subst n m) : \Type =>
+  \Pi (x : Fin n) -> Pred (sigma x) (sigma' x)
+
+\import DeBruijn
+\import Paths
+\import Substitution (rename-subst-commute, subst-commute)
+
+\func par-rename {n m : Nat} {rho : Rename n m} {M M' : Term n} (p : Pred M M') : Pred (rename rho M) (rename rho M')
+\elim M, M', p
+  | _, _, p-c idp idp => p-c idp idp
+  | _, _, p-lam p-body idp idp => p-lam (par-rename p-body) idp idp
+  | _, _, p-app p1 p2 idp idp => p-app (par-rename p1) (par-rename p2) idp idp
+  | _, _, p-beta {M-body} {M'-body} {K} {K'} p1 p2 idp idp =>
+    transport (\lam X => Pred (app (lam (rename (ext rho) M-body)) (rename rho K)) X)
+        (rename-subst-commute {n} {m} {M'-body} {K'} {rho})
+        (p-beta (par-rename {suc n} {suc m} {ext rho} p1) (par-rename p2) idp idp)
+
+\func par-subst-exts {n m : Nat} {sigma sigma' : Subst n m} (s : par-subst sigma sigma') (x : Fin (suc n))
+  : Pred (exts sigma x) (exts sigma' x) \elim x
+  | fzero => p-c idp idp
+  | fsuc x => par-rename (s x)
+
+\func subst-par {n m : Nat} {sigma sigma' : Subst n m} {M M' : Term n}
+                (s : par-subst sigma sigma') (p : Pred M M') : Pred (subst sigma M) (subst sigma' M')
+\elim M, M', p
+  | _, _, p-c {x} idp idp => s x
+  | _, _, p-lam p-body idp idp => p-lam (subst-par (par-subst-exts s) p-body) idp idp
+  | _, _, p-app p1 p2 idp idp => p-app (subst-par s p1) (subst-par s p2) idp idp
+  | _, _, p-beta {N-body} {N'-body} {K} {K'} p1 p2 idp idp =>
+    \let | p1' => subst-par (par-subst-exts s) p1
+         | p2' => subst-par s p2
+         | base-beta => p-beta p1' p2' idp idp
+    \in transport
+        (\lam X => Pred (app (lam (subst (exts sigma) N-body)) (subst sigma K)) X)
+        (subst-commute {n} {m} {N'-body} {K'} {sigma'})
+        base-beta
+
+\func par-subst-zero {n : Nat} {M M' : Term n} (p : Pred M M') (x : Fin (suc n))
+  : Pred (subst-zero M x) (subst-zero M' x) \elim x
+  | fzero => p
+  | fsuc x => p-c idp idp
+
+\func sub-par {n : Nat} {M M' : Term (suc n)} {N N' : Term n} (pM : Pred M M') (pN : Pred N N') : Pred (M sub N) (M' sub N') =>
+  subst-par (par-subst-zero pN) pM
+
+\func par-refl {n : Nat} {M : Term n} : Pred M M \elim M
+  | var x => p-c idp idp
+  | lam N => p-lam par-refl idp idp
+  | app L M => p-app par-refl par-refl idp idp
+
+\func beta-par {n : Nat} {M N : Term n} (r : red M N) : Pred M N \elim M, N, r
+  | _, _, red-appL r idp idp => p-app (beta-par r) par-refl idp idp
+  | _, _, red-appR r idp idp => p-app par-refl (beta-par r) idp idp
+  | _, _, red-lam r idp idp => p-lam (beta-par r) idp idp
+  | _, _, red-beta idp idp => p-beta par-refl par-refl idp idp
+
+
+\func par-betas {n : Nat} {M N : Term n} (p : Pred M N) : reds M N \elim M, N, p
+  | _, _, p-c {x} idp idp => ref (var x) idp idp
+  | _, _, p-lam p-body idp idp => reds-cong-lam (par-betas p-body)
+  | _, _, p-app p1 p2 idp idp => reds-cong (par-betas p1) (par-betas p2)
+  | _, _, p-beta {M-body} {M'-body} {K} {K'} p1 p2 idp idp =>
+    \let | a => reds-congL (reds-cong-lam (par-betas p1))
+         | b => reds-congR (par-betas p2)
+         | c => trans (red-beta idp idp) (ref (M'-body sub K') idp idp)
+    \in reds-trans (reds-trans a b) c
+
+
+\data Preds {n : Nat} (M N : Term n)
+  | preds-refl (M = N)
+  | preds-step {L : Term n} (Pred M L) (Preds L N)
+
+\func betas-pars {n : Nat} {M N : Term n} (p : reds M N) : Preds M N \elim p
+  | ref M idp idp => preds-refl idp
+  | trans {L} r rs => preds-step (beta-par r) (betas-pars rs)
+
+\func pars-betas {n : Nat} {M N : Term n} (p : Preds M N) : reds M N \elim p
+  | preds-refl idp => ref M idp idp
+  | preds-step p ps => reds-trans (par-betas p) (pars-betas ps)

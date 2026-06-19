@@ -1,0 +1,170 @@
+\import Arith.Nat
+\import Beta
+\import BetaSubstitutivity
+\import Data.Fin
+\import DeBruijn
+\import Order.LinearOrder
+\import Paths
+\import Substitution (rename-subst-commute, subst-commute, extensionality)
+\import Takahashi
+\open NatOrder
+\open LinearOrder
+
+\func takahashi-iter {n : Nat} (M : Term n) (k : Nat) : Term n \elim k
+  | zero => M
+  | suc k => takahashi-iter (takahashi M) k
+
+\data RedsLen {n : Nat} (M : Term n) (k : Nat) (N : Term n) \elim k
+  | zero => rlen-refl (M = N)
+  | suc k => rlen-step {L : Term n} (red M L) (RedsLen L k N)
+
+\func lemma3-2 {n : Nat} (M : Term n) : reds M (takahashi M) \elim M
+  | var x => ref (var x) idp idp
+  | lam M => reds-cong-lam (lemma3-2 M)
+  | app (lam M) N => reds-trans (trans (red-beta idp idp) (ref _ idp idp)) (sub-betas (lemma3-2 M) (lemma3-2 N))
+  | app (var x) N => reds-congR (lemma3-2 N)
+  | app (app L K) N => reds-cong (lemma3-2 (app L K)) (lemma3-2 N)
+
+\func lemma3-3-appL {n : Nat} {M M' : Term n} (r : red M M') (N : Term n)
+  : reds (app M' N) (takahashi (app M N)) \elim r
+  | red-lam r' idp idp => trans (red-beta idp idp) (sub-betas (lemma3-3 r') (lemma3-2 N))
+  | red-appL r' idp idp => reds-cong (lemma3-3 (red-appL r' idp idp)) (lemma3-2 N)
+  | red-appR r' idp idp => reds-cong (lemma3-3 (red-appR r' idp idp)) (lemma3-2 N)
+  | red-beta idp idp => reds-cong (lemma3-3 (red-beta idp idp)) (lemma3-2 N)
+
+\func lemma3-3 {n : Nat} {M N : Term n} (r : red M N) : reds N (takahashi M) \elim r
+  | red-lam r idp idp => reds-cong-lam (lemma3-3 r)
+  | red-beta {M_body} {N_int} idp idp => sub-betas (lemma3-2 M_body) (lemma3-2 N_int)
+  | red-appR {M_int} {N_int} {N'_int} r idp idp =>
+    \case M_int \as m \return reds (app m N'_int) (takahashi (app m N_int)) \with {
+      | var x => reds-congR (lemma3-3 r)
+      | lam M_body => trans (red-beta idp idp) (sub-betas (lemma3-2 M_body) (lemma3-3 r))
+      | app L K => reds-cong (lemma3-2 (app L K)) (lemma3-3 r)
+    }
+
+  | red-appL {M_int} {M'_int} {N_int} r idp idp =>
+    lemma3-3-appL r N_int
+
+\func subst-takahashi {n m : Nat} (sigma : Subst n m) : Subst n m =>
+  \lam x => takahashi (sigma x)
+
+\func rename-takahashi {n m : Nat} (rho : Rename n m) (M : Term n)
+  : rename rho (takahashi M) = takahashi (rename rho M) \elim M
+  | var x => idp
+  | lam M => pmap lam (rename-takahashi (ext rho) M)
+  | app (var x) N => pmap (app (var (rho x))) (rename-takahashi rho N)
+  | app (app L K) N => pmap2 app (rename-takahashi rho (app L K)) (rename-takahashi rho N)
+  | app (lam M) N =>
+    inv (rename-subst-commute {n} {m} {takahashi M} {takahashi N} {rho}) *>
+    pmap2 (\lam x y => x sub y) (rename-takahashi (ext rho) M) (rename-takahashi rho N)
+
+\func exts-takahashi-commute {n m : Nat} (sigma : Subst n m)
+  : exts (subst-takahashi sigma) = subst-takahashi (exts sigma) =>
+  extensionality (\lam x =>
+      \case x \as x' \return exts (subst-takahashi sigma) x' = subst-takahashi (exts sigma) x' \with {
+        | fzero => idp
+        | fsuc y => rename-takahashi fsuc (sigma y)
+      })
+
+\func app-takahashi-join {n : Nat} (M N : Term n)
+  : reds (app (takahashi M) (takahashi N)) (takahashi (app M N)) \elim M
+  | var x => ref (app (var x) (takahashi N)) idp idp
+  | lam M => trans (red-beta idp idp) (ref _ idp idp)
+  | app L K => ref (app (takahashi (app L K)) (takahashi N)) idp idp
+
+\func subst-takahashi-lemma {n m : Nat} (sigma : Subst n m) (M : Term n)
+  : reds (subst (subst-takahashi sigma) (takahashi M)) (takahashi (subst sigma M)) \elim M
+  | var x => ref (takahashi (sigma x)) idp idp
+  | lam M => transport (\lam G => reds (lam (subst G (takahashi M))) (lam (takahashi (subst (exts sigma) M))))
+      (inv (exts-takahashi-commute sigma))
+      (reds-cong-lam (subst-takahashi-lemma (exts sigma) M))
+  | app (var x) N =>
+    reds-trans (reds-congR (subst-takahashi-lemma sigma N))
+        (app-takahashi-join (sigma x) (subst sigma N))
+  | app (app L K) N =>
+    reds-cong (subst-takahashi-lemma sigma (app L K)) (subst-takahashi-lemma sigma N)
+  | app (lam M) N =>
+    \let | core => sub-betas (subst-takahashi-lemma (exts sigma) M) (subst-takahashi-lemma sigma N)
+         | eq1 => subst-commute {n} {m} {takahashi M} {takahashi N} {subst-takahashi sigma}
+         | eq2 => pmap (\lam G => subst G (takahashi M) sub subst (subst-takahashi sigma) (takahashi N)) (exts-takahashi-commute sigma)
+    \in transport (\lam X => reds X _) (inv eq2 *> eq1) core
+
+\func subst-zero-takahashi {n : Nat} {N : Term n}
+  : subst-zero (takahashi N) = subst-takahashi (subst-zero N) =>
+  extensionality (\lam x => \case x \as x' \return subst-zero (takahashi N) x' = subst-takahashi (subst-zero N) x' \with {
+    | fzero => idp
+    | fsuc x => idp
+  })
+
+\func lemma3-4 {n : Nat} (M : Term (suc n)) (N : Term n)
+  : reds (takahashi M sub takahashi N) (takahashi (M sub N)) =>
+  transport (\lam G => reds (subst G (takahashi M)) (takahashi (subst (subst-zero N) M)))
+      (inv subst-zero-takahashi)
+      (subst-takahashi-lemma (subst-zero N) M)
+
+\func lemma3-5-appL {n : Nat} {L L' : Term n} (r : red L L') (K : Term n)
+  : reds (takahashi (app L K)) (takahashi (app L' K)) \elim r
+  | red-lam r' idp idp => sub-betas (lemma3-5 r') (ref (takahashi K) idp idp)
+  | red-beta {M1} {M2} idp idp => reds-trans (reds-congL (lemma3-4 M1 M2)) (app-takahashi-join (M1 sub M2) K)
+  | red-appL r' idp idp => reds-congL (lemma3-5 (red-appL r' idp idp))
+  | red-appR r' idp idp => reds-congL (lemma3-5 (red-appR r' idp idp))
+
+\func lemma3-5-appR {n : Nat} (L : Term n) {K K' : Term n} (r : red K K')
+  : reds (takahashi (app L K)) (takahashi (app L K')) \elim L
+  | var x => reds-congR (lemma3-5 r)
+  | lam M => sub-betas (ref _ idp idp) (lemma3-5 r)
+  | app A B => reds-congR (lemma3-5 r)
+
+\func lemma3-5 {n : Nat} {M N : Term n} (r : red M N) : reds (takahashi M) (takahashi N) \elim r
+  | red-lam r' idp idp => reds-cong-lam (lemma3-5 r')
+  | red-beta {M1} {M2} idp idp => lemma3-4 M1 M2
+  | red-appL r' idp idp => lemma3-5-appL r' _
+  | red-appR r' idp idp => lemma3-5-appR _ r'
+
+\func corollary3-6 {n : Nat} {M N : Term n} (p : reds M N) : reds (takahashi M) (takahashi N) \elim p
+  | ref M idp idp => ref (takahashi M) idp idp
+  | trans {L} r rs => reds-trans (lemma3-5 r) (corollary3-6 rs)
+
+\func corollary3-7 {n : Nat} {M N : Term n} (m : Nat) (p : reds M N) : reds (takahashi-iter M m) (takahashi-iter N m) \elim m
+  | zero => p
+  | suc m => corollary3-7 m (corollary3-6 p)
+
+\func theorem3-8 {n : Nat} {M N : Term n} {m : Nat} (p : RedsLen M m N) : reds N (takahashi-iter M m) \elim m, p
+  | zero, rlen-refl idp => ref M idp idp
+  | suc m, rlen-step {L} r rs => reds-trans (theorem3-8 rs) (corollary3-7 m (lemma3-3 r))
+
+\func unnamed-named {n : Nat} {M N : Term n} (p : reds M N) : \Sigma (m : Nat) (RedsLen M m N) \elim p
+  | ref M idp idp => (zero, rlen-refl idp)
+  | trans {L} r rs => \let | (m', rs') => unnamed-named rs \in (suc m', rlen-step r rs')
+
+\func lift-takahashi {n : Nat} (M : Term n) (m : Nat) : reds M (takahashi-iter M m) \elim m
+  | zero => ref M idp idp
+  | suc m => reds-trans (lemma3-2 M) (lift-takahashi (takahashi M) m)
+
+\func complete-takahashi {k : Nat} (M : Term k) {n m : Nat} (le : n <= m) : reds (takahashi-iter M n) (takahashi-iter M m) \elim n, m
+  | zero, m => lift-takahashi M m
+  | suc n, zero => \case le zero<suc
+  | suc n, suc m => complete-takahashi (takahashi M) (suc<=suc.conv le)
+
+\func nat-total (n m : Nat) : TotalChoice (n <= m) (m <= n) \elim n, m
+  | zero, m => choice-left zero<=_
+  | suc n, zero => choice-right zero<=_
+  | suc n, suc m => \case nat-total n m \with {
+    | choice-left le => choice-left (suc<=suc le)
+    | choice-right le => choice-right (suc<=suc le)
+  }
+
+\data TotalChoice (A B : \Type)
+  | choice-left A
+  | choice-right B
+
+\func theorem3-9 {n : Nat} {M A B : Term n} (pA : reds M A) (pB : reds M B)
+  : \Sigma (N : Term n) (reds A N) (reds B N) =>
+  \let | (n', pA') => unnamed-named pA
+       | (m', pB') => unnamed-named pB
+       | A-to-M => theorem3-8 pA'
+       | B-to-M => theorem3-8 pB'
+  \in \case nat-total n' m' \with {
+    | choice-left n<=m => (takahashi-iter M m', reds-trans A-to-M (complete-takahashi M n<=m), B-to-M)
+    | choice-right m<=n => (takahashi-iter M n', A-to-M, reds-trans B-to-M (complete-takahashi M m<=n))
+  }

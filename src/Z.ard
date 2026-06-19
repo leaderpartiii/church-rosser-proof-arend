@@ -1,0 +1,43 @@
+\data Star {T : \Type} (R : T -> T -> \Type) (x y : T)
+  | eps (x = y)
+  | seq {z : T} (Star R x z) (R z y)
+
+\func concat {T : \Type} {R : T -> T -> \Type} {M L N : T}
+             (ML : Star R M L) (LN : Star R L N) : Star R M N \elim LN
+  | eps idp => ML
+  | seq LL' L'N => seq (concat ML LL') L'N
+
+\func SemiConfluence {T : \Type} (R : T -> T -> \Type) : \Type =>
+  \Pi {M A B : T} -> R M A -> Star R M B -> \Sigma (N : T) (Star R A N) (Star R B N)
+
+\func Confluence {T : \Type} (R : T -> T -> \Type) : \Type =>
+  \Pi {M A B : T} -> Star R M A -> Star R M B -> \Sigma (N : T) (Star R A N) (Star R B N)
+
+\func semi-to-confluence {T : \Type} {R : T -> T -> \Type} (sc : SemiConfluence R) : Confluence R => helper sc
+  \where {
+    \func helper {T : \Type} {R : T -> T -> \Type} (sc : SemiConfluence R) {M A B : T}
+                 (MA : Star R M A) (MB : Star R M B) : \Sigma (N : T) (Star R A N) (Star R B N) \elim MA
+      | eps idp => (B, MB, eps idp)
+      | seq {M'} MM' M'A =>
+        \case helper sc MM' MB \with {
+          | (N1, M'N1, BN1) => \case sc M'A M'N1 \with {
+            | (N2, AN2, N1N2) => (N2, AN2, concat BN1 N1N2)
+          }
+        }
+  }
+
+\func Z_Prop {T : \Type} (R : T -> T -> \Type) : \Type => \Sigma (star : T -> T)
+                                                                 (\Pi {A B : T} -> R A B -> Star R B (star A))
+                                                                 (\Pi {A B : T} -> R A B -> Star R (star A) (star B))
+
+\func z-monotonic {T : \Type} {R : T -> T -> \Type} (z : Z_Prop R) {A B : T} (AB : Star R A B) : Star R (z.1 A) (z.1 B) \elim AB
+  | eps idp => eps idp
+  | seq {A'} AA' A'B => concat (z-monotonic z AA') (z.3 A'B)
+
+\func z-semi-confluence {T : \Type} {R : T -> T -> \Type} (z : Z_Prop R) {M A B : T}
+                        (MA : R M A) (MB : Star R M B) : \Sigma (N : T) (Star R A N) (Star R B N) \elim MB
+  | eps idp => (A, eps idp, seq (eps idp) MA)
+  | seq {M'} MM' M'B => (z.1 M', concat (z.2 MA) (z-monotonic z MM'), z.2 M'B)
+
+\func z-confluence {T : \Type} {R : T -> T -> \Type} (z : Z_Prop R) : Confluence R =>
+  semi-to-confluence (z-semi-confluence z)

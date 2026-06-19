@@ -1,0 +1,8 @@
+\import DeBruijn
+
+\func takahashi {n : Nat} (M : Term n) : Term n \elim M
+  | var x => var x
+  | lam M => lam (takahashi M)
+  | app (lam M') N => (takahashi M') sub (takahashi N)
+  | app (var x) N => app (var x) (takahashi N)
+  | app (app L1 L2) N => app (takahashi (app L1 L2)) (takahashi N)

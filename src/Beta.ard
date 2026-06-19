@@ -1,0 +1,32 @@
+\import DeBruijn (Term, var, lam, app, sub)
+
+
+\data red {n : Nat} (t1 t2 : Term n)
+  | red-appL {M M' N : Term n} (red M M') (t1 = app M N) (t2 = app M' N)
+  | red-appR {M N N' : Term n} (red N N') (t1 = app M N) (t2 = app M N')
+  | red-lam {M M' : Term (suc n)} (red M M') (t1 = lam M) (t2 = lam M')
+  | red-beta {M : Term (suc n)} {N : Term n} (t1 = app (lam M) N) (t2 = M sub N)
+
+
+\data reds {n : Nat} (t1 t2 : Term n)
+  | ref (M : Term n) (t1 = M) (t2 = M)
+  | trans {L : Term n} (red t1 L) (reds L t2)
+
+\func reds-trans {n : Nat} {M L N : Term n} (rs1 : reds M L) (rs2 : reds L N) : reds M N \elim rs1
+  | ref _ idp idp => rs2
+  | trans r rs_L => trans r (reds-trans rs_L rs2)
+
+\func reds-congL {n : Nat} {M M' R : Term n} (rs : reds M M') : reds (app M R) (app M' R) \elim rs
+  | ref _ idp idp => ref (app M R) idp idp
+  | trans r rs_L => trans (red-appL r idp idp) (reds-congL rs_L)
+
+\func reds-congR {n : Nat} {M M' L : Term n} (rs : reds M M') : reds (app L M) (app L M') \elim rs
+  | ref _ idp idp => ref (app L M) idp idp
+  | trans r rs_L => trans (red-appR r idp idp) (reds-congR rs_L)
+
+\func reds-cong-lam {n : Nat} {M M' : Term (suc n)} (rs : reds M M') : reds (lam M) (lam M') \elim rs
+  | ref _ idp idp => ref (lam M) idp idp
+  | trans r rs_L => trans (red-lam r idp idp) (reds-cong-lam rs_L)
+
+\func reds-cong {n : Nat} {M M' N N' : Term n} (rsM : reds M M') (rsN : reds N N') : reds (app M N) (app M' N')
+  => reds-trans (reds-congL rsM) (reds-congR rsN)
