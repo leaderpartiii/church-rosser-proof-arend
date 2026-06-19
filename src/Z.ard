@@ -14,16 +14,14 @@
   \Pi {M A B : T} -> Star R M A -> Star R M B -> \Sigma (N : T) (Star R A N) (Star R B N)
 
 \func semi-to-confluence {T : \Type} {R : T -> T -> \Type} (sc : SemiConfluence R) : Confluence R => helper sc
-  \where {
-    \func helper {T : \Type} {R : T -> T -> \Type} (sc : SemiConfluence R) {M A B : T}
-                 (MA : Star R M A) (MB : Star R M B) : \Sigma (N : T) (Star R A N) (Star R B N) \elim MA
-      | eps idp => (B, MB, eps idp)
-      | seq {M'} MM' M'A =>
-        \case helper sc MM' MB \with {
-          | (N1, M'N1, BN1) => \case sc M'A M'N1 \with {
-            | (N2, AN2, N1N2) => (N2, AN2, concat BN1 N1N2)
-          }
-        }
+
+\func helper {T : \Type} {R : T -> T -> \Type} (sc : SemiConfluence R) {M A B : T}
+             (MA : Star R M A) (MB : Star R M B) : \Sigma (N : T) (Star R A N) (Star R B N) \elim MA
+  | eps idp => (B, MB, eps idp)
+  | seq {M'} MM' M'A => \case helper sc MM' MB \with {
+    | (N1, M'N1, BN1) => \case sc M'A M'N1 \with {
+      | (N2, AN2, N1N2) => (N2, AN2, concat BN1 N1N2)
+    }
   }
 
 \func Z_Prop {T : \Type} (R : T -> T -> \Type) : \Type => \Sigma (star : T -> T)

@@ -34,7 +34,7 @@
 
 \func lemma-sub-idL {n m k : Nat} {sigma : Subst n m} {tau : Subst m k} {M : Term m} {x : Fin (suc n)}
   : ((M cons sigma) seq tau) x = (subst tau M cons (sigma seq tau)) x \elim x
-  | zero => idp
+  | zero  => idp
   | suc x => idp
 
 \func cong-app {A B : \Type} {f g : A -> B} (p : f = g) (x : A) : f x = g x => pmap (\lam h => h x) p
@@ -43,14 +43,14 @@
   extensionality (\lam x => lemma-cong-ext rr x)
 
 \func lemma-cong-ext {n m : Nat} {rho rho' : Rename n m} (rr : rho = rho') (x : Fin (suc n)) : ext rho x = ext rho' x \elim x
-  | zero => idp
+  | zero  => idp
   | suc y => pmap (\lam (f : Fin m) => suc f) (cong-app rr y)
 
 \func cong-rename {n m : Nat} {rho rho' : Rename n m} {M M' : Term n}
                   (rr : rho = rho') (mm : M = M') : rename rho M = rename rho' M' \elim M, M', mm
-  | var x, _, idp => pmap var (cong-app rr x)
-  | lam N, _, idp => pmap lam (cong-rename (cong-ext rr) idp)
+  | var x, _, idp   => pmap var (cong-app rr x)
   | app L K, _, idp => pmap2 app (cong-rename rr idp) (cong-rename rr idp)
+  | lam N, _, idp   => pmap lam (cong-rename (cong-ext rr) idp)
 
 \func cong-exts {n m : Nat} {sigma sigma' : Subst n m} (ss : sigma = sigma') : exts sigma = exts sigma' =>
   extensionality (\lam x => lemma-cong-exts ss x)
@@ -61,9 +61,9 @@
 
 \func cong-sub {n m : Nat} {sigma sigma' : Subst n m} {M M' : Term n}
                (ss : sigma = sigma') (mm : M = M') : subst sigma M = subst sigma' M' \elim M, M', mm
-  | var x, _, idp => cong-app ss x
-  | lam N, _, idp => pmap lam (cong-sub (cong-exts ss) idp)
+  | var x, _, idp   => cong-app ss x
   | app L K, _, idp => pmap2 app (cong-sub ss idp) (cong-sub ss idp)
+  | lam N, _, idp   => pmap lam (cong-sub (cong-exts ss) idp)
 
 \func cong-sub-zero {n : Nat} {M M' : Term n} (mm' : M = M') : subst-zero M = subst-zero M' =>
   extensionality (\lam x => pmap (\lam z => subst-zero z x) mm')
@@ -77,26 +77,20 @@
   | zero => idp
   | suc f => cong-app st f
 
--- ==========================================
--- CONTINUATION OF Substitution.ard
--- ==========================================
-
 \func cong-seq {n m k : Nat} {sigma sigma' : Subst n m} {tau tau' : Subst m k}
                (ss' : sigma = sigma') (tt' : tau = tau') : (sigma seq tau) = (sigma' seq tau') =>
   extensionality (\lam x => lemma-cong-seq ss' tt' x)
-  \where {
-    \func lemma-cong-seq {n m k : Nat} {sigma sigma' : Subst n m} {tau tau' : Subst m k}
-                         (ss' : sigma = sigma') (tt' : tau = tau') (x : Fin n) : (sigma seq tau) x = (sigma' seq tau') x =>
-      transport (\lam Z => subst tau (sigma x) = subst tau' Z) (cong-app ss' x) (cong-sub tt' idp)
-  }
+
+\func lemma-cong-seq {n m k : Nat} {sigma sigma' : Subst n m} {tau tau' : Subst m k}
+                     (ss' : sigma = sigma') (tt' : tau = tau') (x : Fin n) : (sigma seq tau) x = (sigma' seq tau') x =>
+  transport (\lam Z => subst tau (sigma x) = subst tau' Z) (cong-app ss' x) (cong-sub tt' idp)
 
 \func ren-ext {n m : Nat} {rho : Rename n m} : ren (ext rho) = exts (ren rho) =>
   extensionality (\lam x => lemma-ren-ext {n} {m} {rho} {x})
-  \where {
-    \func lemma-ren-ext {n m : Nat} {rho : Rename n m} {x : Fin (suc n)} : ren (ext rho) x = exts (ren rho) x \elim x
-      | zero => idp
-      | suc x => idp
-  }
+
+\func lemma-ren-ext {n m : Nat} {rho : Rename n m} {x : Fin (suc n)} : ren (ext rho) x = exts (ren rho) x \elim x
+  | zero => idp
+  | suc x => idp
 
 \func \infixr 2 ==< {A : \Type} (x : A) {y : A} (p : x = y) => p
 
@@ -106,13 +100,12 @@
 
 \func rename-subst-ren {n m : Nat} {rho : Rename n m} {M : Term n} : rename rho M = eval (ren rho) M \elim M
   | var x => idp
-  | lam N => pmap lam (
-    rename (ext rho) N                           ==< rename-subst-ren >==
-    eval (ren (ext rho)) N                       ==< cong-sub ren-ext idp >==
-    eval (exts (ren rho)) N                      ==< idp >==
-    subst (exts (ren rho)) N                     ==< done
-  )
   | app L K => pmap2 app rename-subst-ren rename-subst-ren
+  | lam N =>
+    lam (rename (ext rho) N)                           ==< pmap lam rename-subst-ren >==
+    lam (eval (ren (ext rho)) N)                       ==< pmap lam (cong-sub ren-ext idp) >==
+    lam (eval (exts (ren rho)) N)                      ==< idp >==
+    lam (subst (exts (ren rho)) N)                     ==< done
 
 \func exts-cons-shift {n m : Nat} {sigma : Subst n m} : exts sigma = (var {suc m} zero cons (sigma seq shift)) =>
   extensionality (\lam x => lemma-exts-cons-shift x)
@@ -148,56 +141,40 @@
 
 \func lemma-compose-ext {n m k : Nat} {rho : Rename m k} {rho' : Rename n m} {x : Fin (suc n)}
   : ext rho (ext rho' x) = ext (comp rho rho') x \elim x
-  | zero => idp
+  | zero  => idp
   | suc y => idp
 
 \func compose-rename {n m k : Nat} {M : Term n} {rho : Rename m k} {rho' : Rename n m}
   : rename rho (rename rho' M) = rename (comp rho rho') M \elim M
-  | var x => idp
-  | lam N => pmap lam (
-    rename (ext rho) (rename (ext rho') N)      ==< compose-rename >==
-    rename (comp (ext rho) (ext rho')) N        ==< cong-rename compose-ext idp >==
-    rename (ext (comp rho rho')) N              ==< done
-  )
+  | var x   => idp
   | app L K => pmap2 app compose-rename compose-rename
+  | lam N   =>
+    lam (rename (ext rho) (rename (ext rho') N))      ==< pmap lam compose-rename >==
+    lam (rename (comp (ext rho) (ext rho')) N)        ==< pmap lam (cong-rename compose-ext idp) >==
+    lam (rename (ext (comp rho rho')) N )             ==< done
 
 \func commute-subst-rename {n m k : Nat} {M : Term n} {rho : Rename n m} {sigma : Subst m k} {shiftK : Rename k k}
                            (r : \Pi (x : Fin m) -> sigma x = rename shiftK (sigma x))
   : subst sigma (rename rho M) = rename shiftK (subst (comp sigma rho) M) \elim M
-  | var x => r (rho x)
+  | var x   => r (rho x)
   | app L K => pmap2 app (commute-subst-rename r) (commute-subst-rename r)
-  | lam N =>
-    subst sigma (rename rho (lam N))
-      ==< idp >==
-    lam (subst (exts sigma) (rename (ext rho) N))
-      ==< pmap lam (commute-subst-rename {suc n} {suc m} {suc k} {N} {ext rho} {exts sigma} {ext shiftK} (\lam x => lemma-H r x)) >==
-    lam (rename (ext shiftK) (subst (comp (exts sigma) (ext rho)) N))
-      ==< pmap lam (pmap (\lam f => rename (ext shiftK) (subst f N)) (exts-comp-linear {n} {m} {k} {rho} {sigma})) >==
-    lam (rename (ext shiftK) (subst (exts (comp sigma rho)) N))
-      ==< idp >==
-    rename shiftK (subst (comp sigma rho) (lam N))
-      ==< done
+  | lam N   => pmap lam (commute-subst-rename (\lam x => lemma-H r x))
+    *> pmap (\lam f => lam (rename (ext shiftK) (subst f N))) exts-comp-linear
 
 \func lemma-H {m k : Nat} {sigma : Subst m k} {shiftK : Rename k k}
               (r : \Pi (y : Fin m) -> sigma y = rename shiftK (sigma y)) (x : Fin (suc m))
   : exts sigma x = rename (ext shiftK) (exts sigma x) \elim x
   | zero => idp
   | suc y =>
-    rename (\lam (f : Fin k) => suc f) (sigma y)
-      ==< pmap (rename (\lam (f : Fin k) => suc f)) (r y) >==
-    rename (\lam (f : Fin k) => suc f) (rename shiftK (sigma y))
-      ==< lemma-comp (sigma y) >==
-    rename (ext shiftK) (exts sigma (suc y))
-      ==< done
+    rename (\lam (f : Fin k) => suc f) (sigma y)                 ==< pmap (rename (\lam (f : Fin k) => suc f)) (r y) >==
+    rename (\lam (f : Fin k) => suc f) (rename shiftK (sigma y)) ==< lemma-comp (sigma y) >==
+    rename (ext shiftK) (exts sigma (suc y))                     ==< done
 
 \func lemma-comp {k : Nat} {shiftK : Rename k k} (M : Term k)
   : rename (\lam (f : Fin k) => suc f) (rename shiftK M) = rename (ext shiftK) (rename (\lam (f : Fin k) => suc f) M) =>
-  rename (\lam (f : Fin k) => suc f) (rename shiftK M)
-    ==< lemma-comp-gen (\lam (f : Fin k) => suc f) shiftK (\lam (_ : Fin k) => idp) M >==
-  rename (\lam (z : Fin k) => suc (shiftK z)) M
-    ==< inv (lemma-comp-gen (ext shiftK) (\lam (f : Fin k) => suc f) (\lam (_ : Fin k) => idp) M) >==
-  rename (ext shiftK) (rename (\lam (f : Fin k) => suc f) M)
-    ==< done
+  rename (\lam (f : Fin k) => suc f) (rename shiftK M)       ==< lemma-comp-gen (\lam (f : Fin k) => suc f) shiftK (\lam (_ : Fin k) => idp) M >==
+  rename (\lam (z : Fin k) => suc (shiftK z)) M              ==< inv (lemma-comp-gen (ext shiftK) (\lam (f : Fin k) => suc f) (\lam (_ : Fin k) => idp) M) >==
+  rename (ext shiftK) (rename (\lam (f : Fin k) => suc f) M) ==< done
 
 \func lemma-comp-gen {n m k : Nat} (f : Rename m k) (g : Rename n m)
                      (comm : \Pi (z : Fin n) -> f (g z) = f (g z))
@@ -206,19 +183,9 @@
   | var z => pmap var (comm z)
   | app L K => pmap2 app (lemma-comp-gen f g comm L) (lemma-comp-gen f g comm K)
   | lam N =>
-    rename f (rename g (lam N))
-      ==< idp >==
-    lam (rename (ext f) (rename (ext g) N))
-      ==< pmap lam (
-      rename (ext f) (rename (ext g) N)
-        ==< lemma-comp-gen (ext f) (ext g) (\lam (_ : Fin (suc n)) => idp) N >==
-      rename (\lam v => ext f (ext g v)) N
-        ==< pmap (\lam h => rename h N) (lemma-ext-functional-eq f g) >==
-      rename (ext (\lam z => f (g z))) N
-        ==< done
-    ) >==
-    lam (rename (ext (\lam z => f (g z))) N)
-      ==< done
+    lam (rename (ext f) (rename (ext g) N))    ==< pmap lam (lemma-comp-gen (ext f) (ext g) (\lam _ => idp) N) >==
+    lam (rename (\lam v => ext f (ext g v)) N) ==< pmap (\lam h => lam (rename h N)) (lemma-ext-functional-eq f g) >==
+    lam (rename (ext (\lam z => f (g z))) N)   ==< done
 
 \func lemma-ext-functional-eq {n m k : Nat} (f : Rename m k) (g : Rename n m)
   : (\lam (v : Fin (suc n)) => ext f (ext g v)) = ext (\lam z => f (g z)) =>
@@ -254,14 +221,10 @@
   | zero, x => idp
   | suc k, zero => idp
   | suc k, suc x =>
-    rename (\lam f => suc f) (lift-subst (exts sigma) k (lift-suc n k x))
-      ==< pmap (rename (\lam f => suc f)) (commute-lift-suc-var k sigma x) >==
-    rename (\lam f => suc f) (rename (lift-suc m k) (lift-subst sigma k x))
-      ==< compose-rename >==
-    rename (\lam z => suc (lift-suc m k z)) (lift-subst sigma k x)
-      ==< inv compose-rename >==
-    rename (ext (lift-suc m k)) (rename (\lam f => suc f) (lift-subst sigma k x))
-      ==< done
+    rename (\lam f => suc f) (lift-subst (exts sigma) k (lift-suc n k x))         ==< pmap (rename (\lam f => suc f)) (commute-lift-suc-var k sigma x) >==
+    rename (\lam f => suc f) (rename (lift-suc m k) (lift-subst sigma k x))       ==< compose-rename >==
+    rename (\lam z => suc (lift-suc m k z)) (lift-subst sigma k x)                ==< inv compose-rename >==
+    rename (ext (lift-suc m k)) (rename (\lam f => suc f) (lift-subst sigma k x)) ==< done
 
 \func commute-lift-suc {n m : Nat} (k : Nat) (sigma : Subst n m) (M : Term (iterate-suc n k))
   : subst (lift-subst (exts sigma) k) (rename (lift-suc n k) M)
@@ -271,16 +234,15 @@
   | lam N => pmap lam (commute-lift-suc (suc k) sigma N)
 
 \func exts-seq {n m m' : Nat} {sigma1 : Subst n m} {sigma2 : Subst m m'}
-  : (exts sigma1 seq exts sigma2) = exts (sigma1 seq sigma2) => extensionality (\lam x => lemma x)
-  \where {
-    \func lemma {n m m' : Nat} {sigma1 : Subst n m} {sigma2 : Subst m m'} (x : Fin (suc n))
-      : (exts sigma1 seq exts sigma2) x = exts (sigma1 seq sigma2) x \elim x
-      | zero => idp
-      | suc y =>
-        (exts sigma1 seq exts sigma2) (suc y)                      ==< idp >==
-        subst (exts sigma2) (rename (\lam f => suc f) (sigma1 y))  ==< commute-lift-suc zero sigma2 (sigma1 y) >==
-        rename (\lam f => suc f) (subst sigma2 (sigma1 y))         ==< idp >== done
-  }
+  : (exts sigma1 seq exts sigma2) = exts (sigma1 seq sigma2) => extensionality (\lam x => lemma-exts-seq x)
+
+\func lemma-exts-seq {n m m' : Nat} {sigma1 : Subst n m} {sigma2 : Subst m m'} (x : Fin (suc n))
+  : (exts sigma1 seq exts sigma2) x = exts (sigma1 seq sigma2) x \elim x
+  | zero => idp
+  | suc y =>
+    (exts sigma1 seq exts sigma2) (suc y)                      ==< idp >==
+    subst (exts sigma2) (rename (\lam f => suc f) (sigma1 y))  ==< commute-lift-suc zero sigma2 (sigma1 y) >==
+    rename (\lam f => suc f) (subst sigma2 (sigma1 y))         ==< idp >== done
 
 \func sub-sub {n m k : Nat} {M : Term n} {sigma1 : Subst n m} {sigma2 : Subst m k}
   : eval sigma2 (eval sigma1 M) = eval (sigma1 seq sigma2) M \elim M
@@ -310,7 +272,7 @@
   eval (eval sigma M cons ids) (eval (exts sigma) N)                                                                      ==< sub-sub >==
   eval (exts sigma seq (eval sigma M cons ids)) N                                                                         ==< cong-sub (cong-seq exts-cons-shift idp) idp >==
   eval (((var zero : Term (suc m)) cons (sigma seq shift)) seq (eval sigma M cons ids)) N                                 ==< cong-sub sub-dist idp >==
-  eval (eval (eval sigma M cons ids) (var zero : Term (suc m)) cons ((sigma seq shift) seq (eval sigma M cons ids))) N  ==< cong-sub (cong-cons idp sub-assoc) idp >==
+  eval (eval (eval sigma M cons ids) (var zero : Term (suc m)) cons ((sigma seq shift) seq (eval sigma M cons ids))) N    ==< cong-sub (cong-cons idp sub-assoc) idp >==
   eval (eval sigma M cons (sigma seq (shift seq (eval sigma M cons ids)))) N                                              ==< cong-sub (cong-cons idp (cong-seq idp (sub-tail {m} {m} {eval sigma M}))) idp >==
   eval (eval sigma M cons (sigma seq var)) N                                                                              ==< cong-sub (cong-cons idp sub-idR) idp >==
   eval (eval sigma M cons sigma) N                                                                                        ==< cong-sub (cong-cons idp sub-idL) idp >==

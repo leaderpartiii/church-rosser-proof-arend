@@ -3,6 +3,9 @@
 \import DeBruijn
 \import Paths
 \import Substitution (rename-subst-commute)
+\import DeBruijn
+\import Paths
+\import Substitution (rename-subst-commute, subst-commute)
 
 \data Pred {n : Nat} (M M' : Term n)
   | p-c {x : Fin n} (M = var x) (M' = var x)
@@ -14,10 +17,6 @@
 
 \func par-subst {n m : Nat} (sigma sigma' : Subst n m) : \Type =>
   \Pi (x : Fin n) -> Pred (sigma x) (sigma' x)
-
-\import DeBruijn
-\import Paths
-\import Substitution (rename-subst-commute, subst-commute)
 
 \func par-rename {n m : Nat} {rho : Rename n m} {M M' : Term n} (p : Pred M M') : Pred (rename rho M) (rename rho M')
 \elim M, M', p
@@ -68,7 +67,6 @@
   | _, _, red-lam r idp idp => p-lam (beta-par r) idp idp
   | _, _, red-beta idp idp => p-beta par-refl par-refl idp idp
 
-
 \func par-betas {n : Nat} {M N : Term n} (p : Pred M N) : reds M N \elim M, N, p
   | _, _, p-c {x} idp idp => ref (var x) idp idp
   | _, _, p-lam p-body idp idp => reds-cong-lam (par-betas p-body)
@@ -78,7 +76,6 @@
          | b => reds-congR (par-betas p2)
          | c => trans (red-beta idp idp) (ref (M'-body sub K') idp idp)
     \in reds-trans (reds-trans a b) c
-
 
 \data Preds {n : Nat} (M N : Term n)
   | preds-refl (M = N)

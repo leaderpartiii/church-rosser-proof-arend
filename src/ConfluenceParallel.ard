@@ -14,15 +14,15 @@
 \func app-lam-inj {n : Nat} {A B : Term (suc n)} {K1 K2 : Term n}
                   (p : app (lam A) K1 = app (lam B) K2) : A = B => lam-inj (app-inj-left p)
 
-\func pred-app-left {n : Nat} (t : Term n) : Term n
+\func pred-app-left {n : Nat} (_ : Term n) : Term n
   | app a b => a
-  | var x => var x
   | lam body => lam body
+  | var x => var x
 
-\func pred-app-right {n : Nat} (t : Term n) : Term n
+\func pred-app-right {n : Nat} (_ : Term n) : Term n
   | app a b => b
-  | var x => var x
   | lam body => lam body
+  | var x => var x
 
 \func app-inj-left {n : Nat} {L1 K1 L2 K2 : Term n} (p : app L1 K1 = app L2 K2) : L1 = L2 => pmap pred-app-left p
 
@@ -31,26 +31,18 @@
 \func par-diamond {n : Nat} {M N N' : Term n} (p1 : Pred M N) (p2 : Pred M N')
   : \Sigma (L : Term n) (Pred N L) (Pred N' L) \elim p1, p2
 
-  | p-c {x} idp idp, p-c {x'} q1 q2 =>
-    (var x, p-c idp idp, rewrite (q1, q2) (p-c idp idp))
-
+  | p-c {x} idp idp, p-c {x'} q1 q2 => (var x, p-c idp idp, rewrite (q1, q2) (p-c idp idp))
   | p-lam {M-body} {N-body} p1 idp idp, p-lam {M-body'} {N'-body} p2 q1 q2 =>
     \case par-diamond p1 (transport (\lam X => Pred X N'-body) (inv (lam-inj q1)) p2) \with {
       | (L', p3, p4) =>
-        ( lam L'
-        , p-lam p3 idp idp
-        , transport (\lam X => Pred X (lam L')) (inv q2) (p-lam p4 idp idp)
-        )
+        (lam L', p-lam p3 idp idp, transport (\lam X => Pred X (lam L')) (inv q2) (p-lam p4 idp idp))
     }
 
   | p-app {L} {L'} {K} {K'} p1 p3 idp idp, p-app {L2} {L3} {K2} {K3} p2 p4 q1 q2 =>
     \case par-diamond p1 (transport (\lam X => Pred X L3) (inv (app-inj-left q1)) p2),
           par-diamond p3 (transport (\lam X => Pred X K3) (inv (app-inj-right q1)) p4) \with {
       | (L_final, p5, p6), (M_final, p7, p8) =>
-        ( app L_final M_final
-        , p-app p5 p7 idp idp
-        , transport (\lam X => Pred X (app L_final M_final)) (inv q2) (p-app p6 p8 idp idp)
-        )
+        (app L_final M_final, p-app p5 p7 idp idp, transport (\lam X => Pred X (app L_final M_final)) (inv q2) (p-app p6 p8 idp idp))
     }
 
   | p-app {M1} {M'} {K1} {K'} (p-lam {M-body} {N-body} p1 idp idp) p3 idp idp,
@@ -58,10 +50,7 @@
     \case par-diamond p1 (transport (\lam X => Pred X M3) (inv (app-lam-inj q1)) p2),
           par-diamond p3 (transport (\lam X => Pred X K3) (inv (app-inj-right q1)) p4) \with {
       | (N3, p5, p6), (M3_final, p7, p8) =>
-        ( N3 sub M3_final
-        , p-beta p5 p7 idp idp
-        , transport (\lam X => Pred X (N3 sub M3_final)) (inv q2) (sub-par p6 p8)
-        )
+        (N3 sub M3_final, p-beta p5 p7 idp idp, transport (\lam X => Pred X (N3 sub M3_final)) (inv q2) (sub-par p6 p8))
     }
 
   | p-beta {M-body} {M'-body} {K} {K'} p1 p3 idp idp,
@@ -69,10 +58,7 @@
     \case par-diamond p1 (transport (\lam X => Pred X M'-body2) (inv (app-lam-inj q1)) p2),
           par-diamond p3 (transport (\lam X => Pred X K3) (inv (app-inj-right q1)) p4) \with {
       | (N3, p5, p6), (M3_final, p7, p8) =>
-        ( N3 sub M3_final
-        , sub-par p5 p7
-        , transport (\lam X => Pred X (N3 sub M3_final)) (inv q2) (p-beta p6 p8 idp idp)
-        )
+        (N3 sub M3_final, sub-par p5 p7, transport (\lam X => Pred X (N3 sub M3_final)) (inv q2) (p-beta p6 p8 idp idp))
     }
 
   | p-beta {M-body} {M'-body} {K} {K'} p1 p3 idp idp,
@@ -80,10 +66,7 @@
     \case par-diamond p1 (transport (\lam X => Pred X M'-body2) (inv (app-lam-inj q1)) p2),
           par-diamond p3 (transport (\lam X => Pred X K2') (inv (app-inj-right q1)) p4) \with {
       | (N3, p5, p6), (M3, p7, p8) =>
-        ( N3 sub M3
-        , sub-par p5 p7
-        , transport (\lam X => Pred X (N3 sub M3)) (inv q2) (sub-par p6 p8)
-        )
+        (N3 sub M3, sub-par p5 p7, transport (\lam X => Pred X (N3 sub M3)) (inv q2) (sub-par p6 p8))
     }
 
   | p-app (p-c qL1 _) _ idp _, p-beta _ _ q1 _ => \case inv qL1 *> app-inj-left q1
@@ -111,8 +94,8 @@
 \func strip {n : Nat} {M A B : Term n} (M=>A : Pred M A) (M=>*B : Preds M B)
   : \Sigma (N : Term n) (Preds A N) (Pred B N) \elim M=>*B
   | preds-refl eq => (A, preds-refl idp, transport (\lam X => Pred X A) eq M=>A)
-  | preds-step {M'} M=>M' M'=>*B =>
-    \case par-diamond M=>A M=>M' \with { | (N, A=>N, M'=>N) => \case strip M'=>N M'=>*B \with {
+  | preds-step {M'} M=>M' M'=>*B => \case par-diamond M=>A M=>M' \with {
+    | (N, A=>N, M'=>N) => \case strip M'=>N M'=>*B \with {
           | (N', N=>*N', B=>N') => ( N', preds-step A=>N N=>*N', B=>N' )
         }
     }
@@ -121,8 +104,8 @@
 \func par-confluence {n : Nat} {M A B : Term n} (M=>*A : Preds M A) (M=>*B : Preds M B)
   : \Sigma (N : Term n) (Preds A N) (Preds B N) \elim M=>*A
   | preds-refl eq =>( B, transport (\lam X => Preds X B) eq M=>*B, preds-refl idp)
-  | preds-step {A'} M=>A' A'=>*A =>\case strip M=>A' M=>*B \with {| (N, A'=>*N, B=>N) =>
-        \case par-confluence A'=>*A A'=>*N \with {
+  | preds-step {A'} M=>A' A'=>*A =>\case strip M=>A' M=>*B \with {
+    | (N, A'=>*N, B=>N) => \case par-confluence A'=>*A A'=>*N \with {
           | (N', A=>*N', N=>*N') =>( N', A=>*N', preds-step B=>N N=>*N')
         }
     }

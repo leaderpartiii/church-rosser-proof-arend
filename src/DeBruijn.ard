@@ -15,8 +15,8 @@
 
 \func rename {n m : Nat} (rho : Rename n m) (t : Term n) : Term m \elim t
   | var x => var (rho x)
-  | lam M => lam (rename (ext rho) M)
   | app M N => app (rename rho M) (rename rho N)
+  | lam M => lam (rename (ext rho) M)
 
 \func exts {n m : Nat} (sigma : Subst n m) (x : Fin (suc n)) : Term (suc m) \elim x
   | zero => var zero
@@ -24,8 +24,8 @@
 
 \func subst {n m : Nat} (sigma : Subst n m) (t : Term n) : Term m \elim t
   | var x => sigma x
-  | lam M => lam (subst (exts sigma) M)
   | app M N => app (subst sigma M) (subst sigma N)
+  | lam M => lam (subst (exts sigma) M)
 
 \func subst-zero {n : Nat} (M : Term n) (x : Fin (suc n)) : Term n \elim x
   | zero => M

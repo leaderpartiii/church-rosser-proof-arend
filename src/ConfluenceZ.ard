@@ -14,15 +14,16 @@
   | suc k', rlen-step M-to-L L-to-N => star-left M-to-L (betas-star L-to-N)
 
 \func z-confluence-beta {n : Nat} : Confluence (red {n}) => z-confluence ( takahashi
-  , \lam {_} {_} r => reds-to-star {n} (lemma3-3 r)
-  , \lam {_} {_} r => reds-to-star {n} (lemma3-5 r)
-  )
-    \func reds-to-star {n : Nat} {M N : Term n} (rs : reds M N) : Star red M N \elim rs
-      | ref M idp idp => eps idp
-      | trans {L} M-to-L L-to-N => star-left-star M-to-L (reds-to-star L-to-N)
+, \lam {_} {_} r => reds-to-star {n} (lemma3-3 r)
+, \lam {_} {_} r => reds-to-star {n} (lemma3-5 r)
+)
 
-    \func star-left-star {n : Nat} {M L N : Term n}
-                         (ML : red M L) (LN : Star red L N) : Star red M N \elim LN
-      | eps idp => seq (eps idp) ML
-      | seq {z} L-to-z z-to-N => seq (star-left-star ML L-to-z) z-to-N
+\func reds-to-star {n : Nat} {M N : Term n} (rs : reds M N) : Star red M N \elim rs
+  | ref M idp idp => eps idp
+  | trans {L} M-to-L L-to-N => star-left-star M-to-L (reds-to-star L-to-N)
+
+\func star-left-star {n : Nat} {M L N : Term n}
+                     (ML : red M L) (LN : Star red L N) : Star red M N \elim LN
+  | eps idp => seq (eps idp) ML
+  | seq {z} L-to-z z-to-N => seq (star-left-star ML L-to-z) z-to-N
 
